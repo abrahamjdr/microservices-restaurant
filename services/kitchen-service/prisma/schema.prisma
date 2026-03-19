@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("KITCHEN_DATABASE_URL")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  status      OrderStatus @default(PENDING)
+  totalPlates Int
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+  plates      Plate[]
+}
+
+model Plate {
+  id          String      @id @default(uuid())
+  orderId     String
+  recipeId    Int
+  recipeName  String
+  status      PlateStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+  order       Order       @relation(fields: [orderId], references: [id])
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum PlateStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}

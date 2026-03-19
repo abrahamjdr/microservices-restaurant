@@ -1,0 +1,31 @@
+{
+  "name": "@restaurant/market-service",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/main.ts",
+    "start": "node dist/main.js",
+    "test": "jest",
+    "migrate": "prisma migrate deploy",
+    "generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.11.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "prisma": "^5.11.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.4.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/src/__tests__"]
+  }
+}
