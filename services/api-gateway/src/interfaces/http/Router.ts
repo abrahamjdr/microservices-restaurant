@@ -100,7 +100,6 @@ export class Router {
 
     // Find matching route
     for (const route of ROUTE_MAP) {
-      if (route.method !== method && !(method === 'GET' && route.method === 'GET')) continue;
       if (route.method !== method) continue;
 
       const match = url.match(route.pattern);

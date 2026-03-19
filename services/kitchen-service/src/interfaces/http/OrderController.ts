@@ -34,8 +34,10 @@ export class OrderController {
     try {
       const raw = await readBody(req);
       const { quantity } = JSON.parse(raw) as { quantity: number };
+      // Returns 202 Accepted — order is PENDING, processing continues async in background.
+      // Clients track progress via SSE on GET /orders/stream.
       const order = await this.createOrderUseCase.execute(quantity);
-      sendJson(res, 201, { order });
+      sendJson(res, 202, { order });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Internal server error';
       sendJson(res, 400, { error: message });
