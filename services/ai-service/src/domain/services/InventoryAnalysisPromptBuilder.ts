@@ -7,7 +7,7 @@ export class InventoryAnalysisPromptBuilder {
   build(ctx: InventoryAnalysisContext): string {
     const inventoryLines = Object.entries(ctx.inventory)
       .map(([ing, qty]) => {
-        const rate = ctx.consumptionRates[ing];
+        const rate = ctx.consumptionRates?.[ing];
         const rateStr =
           rate && rate.sampleCount >= 2
             ? `${rate.unitsPerHour.toFixed(1)} unidades/hora`

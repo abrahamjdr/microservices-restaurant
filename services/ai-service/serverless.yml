@@ -4,18 +4,30 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: us-east-1
+  deploymentBucket:
+    name: restaurant-ai-svc-${aws:accountId}
+    blockPublicAccess: true
   environment:
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
 
 functions:
   analyzeInventory:
-    handler: dist/handler.analyzeInventory
-    timeout: 30
+    handler: src/handler.analyzeInventory
+    timeout: 29
     events:
       - http:
           path: /ai/analyze
           method: post
           cors: true
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    target: node20
+    exclude:
+      - '@aws-sdk/*'
 
 plugins:
   - serverless-offline
