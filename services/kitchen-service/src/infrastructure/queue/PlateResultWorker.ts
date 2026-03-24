@@ -3,12 +3,18 @@ import { PlateResultJob, PLATE_RESULT_QUEUE } from '@restaurant/shared-types';
 import { IOrderRepository } from '../../domain/repositories/IOrderRepository';
 import { SseManager } from '../../interfaces/http/SseManager';
 
-function parseRedisUrl(url: string): { host: string; port: number; password?: string } {
+function parseRedisUrl(url: string): {
+  host: string;
+  port: number;
+  password?: string;
+  tls?: object;
+} {
   const parsed = new URL(url);
   return {
     host: parsed.hostname,
     port: parseInt(parsed.port || '6379', 10),
     ...(parsed.password ? { password: parsed.password } : {}),
+    ...(parsed.protocol === 'rediss:' ? { tls: {} } : {}),
   };
 }
 

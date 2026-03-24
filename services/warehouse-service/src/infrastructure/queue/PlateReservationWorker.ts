@@ -12,12 +12,18 @@ import { FallbackAnalyzer } from '../ai/FallbackAnalyzer';
 import { RefillIngredientUseCase } from '../../application/usecases/RefillIngredientUseCase';
 import { IInventoryRepository } from '../../domain/repositories/IInventoryRepository';
 
-function parseRedisUrl(url: string): { host: string; port: number; password?: string } {
+function parseRedisUrl(url: string): {
+  host: string;
+  port: number;
+  password?: string;
+  tls?: object;
+} {
   const parsed = new URL(url);
   return {
     host: parsed.hostname,
     port: parseInt(parsed.port || '6379', 10),
     ...(parsed.password ? { password: parsed.password } : {}),
+    ...(parsed.protocol === 'rediss:' ? { tls: {} } : {}),
   };
 }
 

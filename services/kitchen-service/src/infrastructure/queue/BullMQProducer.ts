@@ -2,12 +2,18 @@ import { Queue } from 'bullmq';
 import { PlateReservationJob, PLATE_RESERVE_QUEUE } from '@restaurant/shared-types';
 import { IQueueProducerPort } from '../../application/ports/IQueueProducerPort';
 
-function parseRedisUrl(url: string): { host: string; port: number; password?: string } {
+function parseRedisUrl(url: string): {
+  host: string;
+  port: number;
+  password?: string;
+  tls?: object;
+} {
   const parsed = new URL(url);
   return {
     host: parsed.hostname,
     port: parseInt(parsed.port || '6379', 10),
     ...(parsed.password ? { password: parsed.password } : {}),
+    ...(parsed.protocol === 'rediss:' ? { tls: {} } : {}),
   };
 }
 
