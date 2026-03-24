@@ -61,6 +61,7 @@ function makeOrderRepo(overrides: Partial<IOrderRepository> = {}): IOrderReposit
 function makeQueueProducer(): IQueueProducerPort {
   return {
     publishPlateReservation: jest.fn().mockResolvedValue(undefined),
+    getDepth: jest.fn().mockResolvedValue(0),
   };
 }
 

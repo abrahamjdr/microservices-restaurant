@@ -18,10 +18,14 @@ function parseRedisUrl(url: string): {
   };
 }
 
+const PLATE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const TIMEOUT_CHECK_INTERVAL_MS = 30_000; // check every 30s
+
 export class PlateResultWorker {
   private readonly worker: Worker;
   private readonly orderRepo: IOrderRepository;
   private readonly sseManager: SseManager;
+  private readonly timeoutInterval: ReturnType<typeof setInterval>;
 
   constructor(redisUrl: string, orderRepo: IOrderRepository, sseManager: SseManager) {
     this.orderRepo = orderRepo;
@@ -36,6 +40,47 @@ export class PlateResultWorker {
     this.worker.on('failed', (job, err) => {
       console.error(`[kitchen] PlateResultWorker job ${job?.id} failed:`, err);
     });
+
+    this.timeoutInterval = setInterval(() => {
+      this.resolveTimedOutPlates().catch((err) => {
+        console.error('[kitchen] Timeout watcher error:', err);
+      });
+    }, TIMEOUT_CHECK_INTERVAL_MS);
+  }
+
+  private async resolveTimedOutPlates(): Promise<void> {
+    const cutoff = new Date(Date.now() - PLATE_TIMEOUT_MS);
+    const orders = await this.orderRepo.findAll();
+
+    for (const order of orders) {
+      if (order.status === 'COMPLETED' || order.status === 'FAILED') continue;
+
+      let timedOut = false;
+      for (const plate of order.plates) {
+        if (plate.status === 'IN_PROGRESS' && plate.createdAt < cutoff) {
+          console.warn(`[kitchen] Plate ${plate.id} timed out — marking FAILED`);
+          const failed = await this.orderRepo.updatePlateStatus(plate.id, 'FAILED', new Date());
+          this.sseManager.broadcast('plate_updated', failed);
+          timedOut = true;
+        }
+      }
+
+      if (!timedOut) continue;
+
+      // Re-fetch to check whether all plates are now terminal
+      const updated = await this.orderRepo.findById(order.id);
+      if (!updated) continue;
+
+      const allTerminal = updated.plates.every(
+        (p) => p.status === 'COMPLETED' || p.status === 'FAILED',
+      );
+      if (!allTerminal) continue;
+
+      const anyCompleted = updated.plates.some((p) => p.status === 'COMPLETED');
+      const finalStatus = anyCompleted ? 'COMPLETED' : 'FAILED';
+      const completedOrder = await this.orderRepo.updateStatus(order.id, finalStatus, new Date());
+      this.sseManager.broadcast('order_updated', { ...completedOrder, plates: updated.plates });
+    }
   }
 
   private async process(job: Job<PlateResultJob>): Promise<void> {
@@ -64,6 +109,7 @@ export class PlateResultWorker {
   }
 
   async close(): Promise<void> {
+    clearInterval(this.timeoutInterval);
     await this.worker.close();
   }
 }

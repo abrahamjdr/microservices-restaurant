@@ -149,9 +149,7 @@ export class PlateReservationWorker {
       if (item.refillNow) {
         const qty = Math.max(1, item.recommendedRefillQty);
         console.log(`[warehouse] Reabastecimiento: ${item.ingredient} x${qty}`);
-        for (let i = 0; i < qty; i++) {
-          await refillUseCase.execute(item.ingredient).catch(() => {});
-        }
+        await refillUseCase.execute(item.ingredient, qty).catch(() => {});
       }
     }
   }

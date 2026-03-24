@@ -14,7 +14,7 @@ export const INITIAL_INGREDIENTS = [
 export type Ingredient = (typeof INITIAL_INGREDIENTS)[number];
 
 export const INITIAL_QUANTITY = 5;
-export const MAX_STOCK = 20;
+export const MAX_STOCK = 50;
 
 export interface InventoryItem {
   id: string;

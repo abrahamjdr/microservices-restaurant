@@ -40,6 +40,10 @@ export class OrderController {
       sendJson(res, 202, { order });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Internal server error';
+      if (message === 'KITCHEN_AT_CAPACITY') {
+        sendJson(res, 503, { error: 'Kitchen at capacity, try again shortly' });
+        return;
+      }
       sendJson(res, 400, { error: message });
     }
   }

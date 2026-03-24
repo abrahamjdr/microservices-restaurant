@@ -12,7 +12,7 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint \"**/*.{ts,tsx}\" --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,json,yml}\"",
-    "prepare": "husky"
+    "prepare": "is-ci || husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",
@@ -22,6 +22,7 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "husky": "^9.0.0",
+    "is-ci": "^4.1.0",
     "lint-staged": "^15.2.0",
     "prettier": "^3.2.0",
     "typescript": "^5.4.0"

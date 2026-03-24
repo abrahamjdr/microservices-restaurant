@@ -23,6 +23,11 @@ export class CreateOrderUseCase {
       throw new Error('Quantity must be between 1 and 50');
     }
 
+    const depth = await this.queueProducer.getDepth();
+    if (depth > 20) {
+      throw new Error('KITCHEN_AT_CAPACITY');
+    }
+
     // 1. Create order + plates synchronously — all start as PENDING
     const order = await this.orderRepo.create(quantity);
     const plates = await Promise.all(
