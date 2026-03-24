@@ -30,7 +30,7 @@ export class PlateResultWorker {
     this.worker = new Worker(
       PLATE_RESULT_QUEUE,
       (job) => this.process(job as Job<PlateResultJob>),
-      { connection: parseRedisUrl(redisUrl), concurrency: 10 },
+      { connection: parseRedisUrl(redisUrl), concurrency: 1 },
     );
 
     this.worker.on('failed', (job, err) => {

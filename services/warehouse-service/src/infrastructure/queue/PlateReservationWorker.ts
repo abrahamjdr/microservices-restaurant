@@ -57,7 +57,7 @@ export class PlateReservationWorker {
     this.worker = new Worker(
       PLATE_RESERVE_QUEUE,
       (job) => this.process(job as Job<PlateReservationJob>, reserveUseCase),
-      { connection, concurrency: 5 },
+      { connection, concurrency: 1 },
     );
 
     this.worker.on('failed', (job, err) => {
