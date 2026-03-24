@@ -38,6 +38,8 @@ export interface AIServices {
 export class PlateReservationWorker {
   private readonly worker: Worker;
   private readonly resultQueue: Queue;
+  private lastAnalysisAt = 0;
+  private readonly analysisCooldownMs = 20_000; // max once every 20s
 
   constructor(
     redisUrl: string,
@@ -93,9 +95,10 @@ export class PlateReservationWorker {
       message = err instanceof Error ? err.message : 'Unknown error';
     }
 
-    // Always trigger AI analysis so critical stock is detected and refilled
-    // before the next retry attempt arrives
-    if (this.aiServices) {
+    // Throttle AI analysis to at most once per cooldown window to prevent
+    // flooding the market API when many jobs retry concurrently.
+    if (this.aiServices && Date.now() - this.lastAnalysisAt >= this.analysisCooldownMs) {
+      this.lastAnalysisAt = Date.now();
       this.triggerAIAnalysis().catch(() => {});
     }
 
