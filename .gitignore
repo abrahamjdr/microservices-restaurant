@@ -11,3 +11,8 @@ prisma/migrations/
 *.db
 .DS_Store
 Thumbs.db
+
+# Claude / AI tooling — no subir al repo
+.claude/
+docs/context/
+ARCHITECTURE.md

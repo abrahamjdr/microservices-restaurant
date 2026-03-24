@@ -7,39 +7,41 @@ interface Props {
 }
 
 export function PurchaseHistory({ purchases }: Props) {
+  if (purchases.length === 0) {
+    return <p className="text-sm text-slate-400 py-4 text-center">Aún no hay compras al mercado</p>;
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-800">Market Purchases</h2>
-        <span className="text-sm text-slate-400">{purchases.length} total</span>
-      </div>
-      {purchases.length === 0 ? (
-        <p className="text-sm text-slate-400">No market purchases yet</p>
-      ) : (
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {purchases.slice(0, 20).map((purchase) => (
-            <div
-              key={purchase.id}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${purchase.success ? 'bg-green-50' : 'bg-red-50'}`}
+    <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+      {purchases.slice(0, 30).map((purchase) => (
+        <div
+          key={purchase.id}
+          className={`flex items-center justify-between px-3 py-2 rounded-lg border-l-4 ${
+            purchase.success ? 'bg-emerald-50 border-l-emerald-500' : 'bg-red-50 border-l-red-400'
+          }`}
+        >
+          <span className="capitalize font-semibold text-slate-700 text-sm">
+            {purchase.ingredient}
+          </span>
+          <div className="flex items-center gap-3">
+            <span
+              className={`text-sm font-bold tabular-nums ${purchase.success ? 'text-emerald-600' : 'text-red-500'}`}
             >
-              <span className="capitalize font-medium text-slate-700">{purchase.ingredient}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-500">
-                  {purchase.quantityReceived > 0 ? `+${purchase.quantityReceived}` : '0'}
-                </span>
-                <span
-                  className={`text-xs font-semibold ${purchase.success ? 'text-green-600' : 'text-red-600'}`}
-                >
-                  {purchase.success ? 'OK' : 'FAIL'}
-                </span>
-                <span className="text-xs text-slate-400">
-                  {new Date(purchase.requestedAt).toLocaleTimeString()}
-                </span>
-              </div>
-            </div>
-          ))}
+              {purchase.quantityReceived > 0 ? `+${purchase.quantityReceived}` : '—'}
+            </span>
+            <span
+              className={`text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${
+                purchase.success ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+              }`}
+            >
+              {purchase.success ? 'OK' : 'FALLO'}
+            </span>
+            <span className="text-[10px] text-slate-400 tabular-nums">
+              {new Date(purchase.requestedAt).toLocaleTimeString()}
+            </span>
+          </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

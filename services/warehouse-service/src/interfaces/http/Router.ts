@@ -25,12 +25,16 @@ export class Router {
         return this.controller.health(req, res);
       }
 
-      if (url === '/internal/reserve' && method === 'POST') {
-        return this.controller.reserveIngredients(req, res);
-      }
-
       if (url === '/inventory' && method === 'GET') {
         return this.controller.getInventory(req, res);
+      }
+
+      if (url === '/inventory/reset' && method === 'POST') {
+        return this.controller.resetInventory(req, res);
+      }
+
+      if (url === '/inventory/analysis' && method === 'GET') {
+        return this.controller.getAnalysis(req, res);
       }
 
       res.writeHead(404, { 'Content-Type': 'application/json' });

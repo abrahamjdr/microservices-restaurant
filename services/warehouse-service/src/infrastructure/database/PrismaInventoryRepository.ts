@@ -1,5 +1,5 @@
 import { IInventoryRepository } from '../../domain/repositories/IInventoryRepository';
-import { InventoryItem } from '../../domain/entities/Inventory';
+import { InventoryItem, MAX_STOCK } from '../../domain/entities/Inventory';
 import prisma from './PrismaClient';
 
 export class PrismaInventoryRepository implements IInventoryRepository {
@@ -17,6 +17,25 @@ export class PrismaInventoryRepository implements IInventoryRepository {
       update: {},
       create: { ingredient, quantity },
     });
+  }
+
+  async setStock(ingredient: string, quantity: number): Promise<InventoryItem> {
+    return prisma.inventory.update({
+      where: { ingredient },
+      data: { quantity },
+    });
+  }
+
+  async addStock(ingredient: string, quantity: number): Promise<InventoryItem> {
+    // LEAST(..., MAX_STOCK) es atómico en PostgreSQL: previene race conditions
+    // donde dos refills concurrentes leen el mismo stock y ambos suman, pasando el cap.
+    await prisma.$executeRaw`
+      UPDATE "warehouse"."Inventory"
+      SET quantity    = LEAST(quantity + ${quantity}, ${MAX_STOCK}),
+          "updatedAt" = NOW()
+      WHERE ingredient = ${ingredient}
+    `;
+    return prisma.inventory.findUniqueOrThrow({ where: { ingredient } });
   }
 
   /**

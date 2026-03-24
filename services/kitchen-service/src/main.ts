@@ -1,6 +1,7 @@
 import http from 'http';
 import { PrismaOrderRepository } from './infrastructure/database/PrismaOrderRepository';
-import { WarehouseAxiosAdapter } from './infrastructure/adapters/WarehouseAxiosAdapter';
+import { BullMQProducer } from './infrastructure/queue/BullMQProducer';
+import { PlateResultWorker } from './infrastructure/queue/PlateResultWorker';
 import { RecipeSelector } from './domain/services/RecipeSelector';
 import { SseManager } from './interfaces/http/SseManager';
 import { CreateOrderUseCase } from './application/usecases/CreateOrderUseCase';
@@ -9,20 +10,21 @@ import { OrderController } from './interfaces/http/OrderController';
 import { Router } from './interfaces/http/Router';
 
 const PORT = parseInt(process.env.PORT ?? '8001', 10);
-const WAREHOUSE_URL = process.env.WAREHOUSE_SERVICE_URL ?? 'http://localhost:8002';
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 async function main() {
   // Infrastructure
   const orderRepo = new PrismaOrderRepository();
-  const warehouseAdapter = new WarehouseAxiosAdapter(WAREHOUSE_URL);
   const recipeSelector = new RecipeSelector();
   const sseManager = new SseManager();
+  const bullmqProducer = new BullMQProducer(REDIS_URL);
+  const plateResultWorker = new PlateResultWorker(REDIS_URL, orderRepo, sseManager);
 
   // Use cases
   const createOrderUseCase = new CreateOrderUseCase(
     orderRepo,
     recipeSelector,
-    warehouseAdapter,
+    bullmqProducer,
     sseManager,
   );
   const getOrdersUseCase = new GetOrdersUseCase(orderRepo);
@@ -40,6 +42,16 @@ async function main() {
   server.listen(PORT, () => {
     console.log(`[kitchen-service] Listening on port ${PORT}`);
   });
+
+  const shutdown = async () => {
+    console.log('[kitchen-service] Shutting down...');
+    await bullmqProducer.close();
+    await plateResultWorker.close();
+    server.close(() => process.exit(0));
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 main().catch((err) => {

@@ -4,6 +4,8 @@ export interface IInventoryRepository {
   findAll(): Promise<InventoryItem[]>;
   findByIngredient(ingredient: string): Promise<InventoryItem | null>;
   upsert(ingredient: string, quantity: number): Promise<InventoryItem>;
+  addStock(ingredient: string, quantity: number): Promise<InventoryItem>;
+  setStock(ingredient: string, quantity: number): Promise<InventoryItem>;
   reserveWithLock(
     ingredient: string,
     needed: number,

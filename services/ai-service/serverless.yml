@@ -8,11 +8,12 @@ provider:
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
 
 functions:
-  recommend:
-    handler: dist/handler.recommend
+  analyzeInventory:
+    handler: dist/handler.analyzeInventory
+    timeout: 30
     events:
       - http:
-          path: /ai/recommend
+          path: /ai/analyze
           method: post
           cors: true
 
@@ -23,3 +24,4 @@ custom:
   serverless-offline:
     httpPort: 8004
     host: 0.0.0.0
+    noPrependStageInUrl: true

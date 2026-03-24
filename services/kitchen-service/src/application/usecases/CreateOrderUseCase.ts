@@ -1,6 +1,6 @@
 import { IOrderRepository } from '../../domain/repositories/IOrderRepository';
 import { RecipeSelector } from '../../domain/services/RecipeSelector';
-import { IWarehousePort } from '../ports/IWarehousePort';
+import { IQueueProducerPort } from '../ports/IQueueProducerPort';
 import { SseManager } from '../../interfaces/http/SseManager';
 import { Order, Plate } from '../../domain/entities/Order';
 
@@ -8,17 +8,17 @@ export class CreateOrderUseCase {
   constructor(
     private readonly orderRepo: IOrderRepository,
     private readonly recipeSelector: RecipeSelector,
-    private readonly warehousePort: IWarehousePort,
+    private readonly queueProducer: IQueueProducerPort,
     private readonly sseManager: SseManager,
   ) {}
 
   /**
    * Creates the order and all plates synchronously (so we can return IDs immediately),
-   * then fires off the ingredient reservation + cooking in the background.
+   * then fires off the ingredient reservation in the background via Redis queue.
    * Returns a 202 Accepted-style response — the order is PENDING, not yet processed.
    * Clients subscribe to SSE (/orders/stream) to receive real-time status updates.
    */
-  async execute(quantity: number): Promise<Order> {
+  async execute(quantity: number, recipeId?: number): Promise<Order> {
     if (quantity < 1 || quantity > 50) {
       throw new Error('Quantity must be between 1 and 50');
     }
@@ -27,7 +27,10 @@ export class CreateOrderUseCase {
     const order = await this.orderRepo.create(quantity);
     const plates = await Promise.all(
       Array.from({ length: quantity }).map(() => {
-        const recipe = this.recipeSelector.selectRandom();
+        const recipe =
+          recipeId != null
+            ? (this.recipeSelector.findById(recipeId) ?? this.recipeSelector.selectRandom())
+            : this.recipeSelector.selectRandom();
         return this.orderRepo.createPlate(order.id, recipe.id, recipe.name);
       }),
     );
@@ -45,67 +48,28 @@ export class CreateOrderUseCase {
 
   /**
    * Runs entirely in the background after the HTTP response is sent.
-   * Broadcasts SSE events at every state transition so the frontend stays in sync.
+   * Publishes reservation jobs to Redis — completion is handled by PlateResultWorker.
    */
   private async processOrderAsync(orderId: string, plates: Plate[]): Promise<void> {
-    // Transition order → IN_PROGRESS and notify clients
-    const inProgressOrder = await this.orderRepo.updateStatus(orderId, 'IN_PROGRESS');
-    this.sseManager.broadcast('order_updated', { ...inProgressOrder, plates });
+    const inProgress = await this.orderRepo.updateStatus(orderId, 'IN_PROGRESS');
+    this.sseManager.broadcast('order_updated', { ...inProgress, plates });
 
-    // Process all plates concurrently — allSettled ensures one failure doesn't cancel others
-    await Promise.allSettled(
-      plates.map((plate) => this.processPlate(plate.id, plate.recipeId, plate.recipeName)),
-    );
-
-    // Determine final order status
-    const finalOrder = await this.orderRepo.findById(orderId);
-    if (!finalOrder) return;
-
-    const anyCompleted = finalOrder.plates.some((p) => p.status === 'COMPLETED');
-    const allFailed = finalOrder.plates.every((p) => p.status === 'FAILED');
-    const finalStatus = allFailed ? 'FAILED' : anyCompleted ? 'COMPLETED' : 'FAILED';
-
-    const completedOrder = await this.orderRepo.updateStatus(orderId, finalStatus, new Date());
-    this.sseManager.broadcast('order_updated', {
-      ...completedOrder,
-      plates: finalOrder.plates,
-    });
-  }
-
-  private async processPlate(
-    plateId: string,
-    recipeId: number,
-    recipeName: string,
-  ): Promise<void> {
-    const recipe = this.recipeSelector.findById(recipeId);
-    if (!recipe) {
-      await this.orderRepo.updatePlateStatus(plateId, 'FAILED', new Date());
-      return;
-    }
-
-    const inProgressPlate = await this.orderRepo.updatePlateStatus(plateId, 'IN_PROGRESS');
-    this.sseManager.broadcast('plate_updated', inProgressPlate);
-
-    try {
-      const result = await this.warehousePort.reserveIngredients(recipe);
-      if (result.success) {
-        const completedPlate = await this.orderRepo.updatePlateStatus(
-          plateId,
-          'COMPLETED',
-          new Date(),
-        );
-        this.sseManager.broadcast('plate_updated', completedPlate);
-      } else {
-        const failedPlate = await this.orderRepo.updatePlateStatus(
-          plateId,
-          'FAILED',
-          new Date(),
-        );
-        this.sseManager.broadcast('plate_updated', failedPlate);
+    for (const plate of plates) {
+      const recipe = this.recipeSelector.findById(plate.recipeId);
+      if (!recipe) {
+        const failed = await this.orderRepo.updatePlateStatus(plate.id, 'FAILED', new Date());
+        this.sseManager.broadcast('plate_updated', failed);
+        continue;
       }
-    } catch {
-      const failedPlate = await this.orderRepo.updatePlateStatus(plateId, 'FAILED', new Date());
-      this.sseManager.broadcast('plate_updated', failedPlate);
+      const inProg = await this.orderRepo.updatePlateStatus(plate.id, 'IN_PROGRESS');
+      this.sseManager.broadcast('plate_updated', inProg);
+      await this.queueProducer.publishPlateReservation({
+        plateId: plate.id,
+        orderId,
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        ingredients: recipe.ingredients,
+      });
     }
   }
 }

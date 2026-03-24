@@ -3,3 +3,4 @@ export * from './recipes.types';
 export * from './warehouse.types';
 export * from './market.types';
 export * from './ai.types';
+export * from './queue.types';

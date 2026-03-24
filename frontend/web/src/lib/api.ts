@@ -48,10 +48,3 @@ export interface RecipeDTO {
   name: string;
   ingredients: Array<{ ingredient: string; quantity: number }>;
 }
-
-export interface AIRecommendation {
-  recipeId: number;
-  recipeName: string;
-  score: number;
-  reasoning: string;
-}

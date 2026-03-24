@@ -7,7 +7,6 @@ interface ServiceMap {
   kitchen: string;
   warehouse: string;
   market: string;
-  ai: string;
 }
 
 const ROUTE_MAP: Array<{
@@ -39,19 +38,24 @@ const ROUTE_MAP: Array<{
     service: 'warehouse',
     target: () => '/inventory',
   },
+  {
+    method: 'POST',
+    pattern: /^\/api\/inventory\/reset$/,
+    service: 'warehouse',
+    target: () => '/inventory/reset',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/inventory\/analysis$/,
+    service: 'warehouse',
+    target: () => '/inventory/analysis',
+  },
   // Market routes
   {
     method: 'GET',
     pattern: /^\/api\/purchases$/,
     service: 'market',
     target: () => '/purchases',
-  },
-  // AI routes
-  {
-    method: 'POST',
-    pattern: /^\/api\/ai\/recommend$/,
-    service: 'ai',
-    target: () => '/ai/recommend',
   },
 ];
 

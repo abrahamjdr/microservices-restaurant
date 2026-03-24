@@ -7,7 +7,6 @@ const services = {
   kitchen: process.env.KITCHEN_SERVICE_URL ?? 'http://localhost:8001',
   warehouse: process.env.WAREHOUSE_SERVICE_URL ?? 'http://localhost:8002',
   market: process.env.MARKET_SERVICE_URL ?? 'http://localhost:8003',
-  ai: process.env.AI_SERVICE_URL ?? 'http://localhost:8004',
 };
 
 const router = new Router(services);

@@ -33,10 +33,10 @@ export class OrderController {
   async createOrder(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const raw = await readBody(req);
-      const { quantity } = JSON.parse(raw) as { quantity: number };
+      const { quantity, recipeId } = JSON.parse(raw) as { quantity: number; recipeId?: number };
       // Returns 202 Accepted — order is PENDING, processing continues async in background.
       // Clients track progress via SSE on GET /orders/stream.
-      const order = await this.createOrderUseCase.execute(quantity);
+      const order = await this.createOrderUseCase.execute(quantity, recipeId);
       sendJson(res, 202, { order });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Internal server error';
@@ -68,8 +68,17 @@ export class OrderController {
     }
   }
 
-  streamOrders(_req: IncomingMessage, res: ServerResponse): void {
+  async streamOrders(_req: IncomingMessage, res: ServerResponse): Promise<void> {
     this.sseManager.addClient(res);
+    try {
+      const orders = await this.getOrdersUseCase.getAll();
+      for (const order of orders) {
+        const msg = `event: order_updated\ndata: ${JSON.stringify(order)}\n\n`;
+        res.write(msg);
+      }
+    } catch {
+      // ignore — client will rely on subsequent SSE events
+    }
   }
 
   getRecipes(_req: IncomingMessage, res: ServerResponse): void {

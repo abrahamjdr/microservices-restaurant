@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { OrderDTO, SSE_URL, api } from '@/lib/api';
+import { OrderDTO, PlateDTO, SSE_URL, api } from '@/lib/api';
 
 export function useOrderStream() {
   const [orders, setOrders] = useState<OrderDTO[]>([]);
@@ -54,9 +54,14 @@ export function useOrderStream() {
         upsertOrder(order);
       });
 
-      es.addEventListener('plate_updated', () => {
-        // Plate updates come nested in order — just re-fetch to stay consistent
-        fetchAll();
+      es.addEventListener('plate_updated', (e: MessageEvent) => {
+        const plate = JSON.parse(e.data) as PlateDTO;
+        setOrders((prev) =>
+          prev.map((o) => {
+            if (o.id !== plate.orderId) return o;
+            return { ...o, plates: o.plates.map((p) => (p.id === plate.id ? plate : p)) };
+          }),
+        );
       });
 
       es.onopen = () => {

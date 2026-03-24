@@ -1,7 +1,7 @@
 import { CreateOrderUseCase } from '../application/usecases/CreateOrderUseCase';
 import { IOrderRepository } from '../domain/repositories/IOrderRepository';
 import { RecipeSelector } from '../domain/services/RecipeSelector';
-import { IWarehousePort } from '../application/ports/IWarehousePort';
+import { IQueueProducerPort } from '../application/ports/IQueueProducerPort';
 import { SseManager } from '../interfaces/http/SseManager';
 import { Order, Plate } from '../domain/entities/Order';
 
@@ -56,6 +56,12 @@ function makeOrderRepo(overrides: Partial<IOrderRepository> = {}): IOrderReposit
   };
 }
 
+function makeQueueProducer(): IQueueProducerPort {
+  return {
+    publishPlateReservation: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe('CreateOrderUseCase', () => {
   let sseManager: SseManager;
 
@@ -68,7 +74,7 @@ describe('CreateOrderUseCase', () => {
     const useCase = new CreateOrderUseCase(
       makeOrderRepo(),
       new RecipeSelector(),
-      { reserveIngredients: jest.fn() },
+      makeQueueProducer(),
       sseManager,
     );
     await expect(useCase.execute(0)).rejects.toThrow('Quantity must be between 1 and 50');
@@ -76,13 +82,10 @@ describe('CreateOrderUseCase', () => {
   });
 
   it('returns PENDING order immediately (async / 202 behavior)', async () => {
-    const warehousePort: IWarehousePort = {
-      reserveIngredients: jest.fn().mockResolvedValue({ success: true }),
-    };
     const useCase = new CreateOrderUseCase(
       makeOrderRepo(),
       new RecipeSelector(),
-      warehousePort,
+      makeQueueProducer(),
       sseManager,
     );
 
@@ -95,14 +98,11 @@ describe('CreateOrderUseCase', () => {
   });
 
   it('creates order with correct plate count', async () => {
-    const warehousePort: IWarehousePort = {
-      reserveIngredients: jest.fn().mockResolvedValue({ success: true }),
-    };
     const orderRepo = makeOrderRepo();
     const useCase = new CreateOrderUseCase(
       orderRepo,
       new RecipeSelector(),
-      warehousePort,
+      makeQueueProducer(),
       sseManager,
     );
 
@@ -112,39 +112,44 @@ describe('CreateOrderUseCase', () => {
     expect(orderRepo.createPlate).toHaveBeenCalledTimes(2);
   });
 
-  it('marks plates as failed when warehouse returns failure (after background flush)', async () => {
-    const warehousePort: IWarehousePort = {
-      reserveIngredients: jest.fn().mockResolvedValue({ success: false, message: 'Out of stock' }),
-    };
+  it('publishes one reservation job per plate (after background flush)', async () => {
     const orderRepo = makeOrderRepo({
-      // single-plate scenario
-      createPlate: jest.fn().mockResolvedValue(mockPlate('p1')),
+      createPlate: jest
+        .fn()
+        .mockResolvedValueOnce(mockPlate('p1'))
+        .mockResolvedValueOnce(mockPlate('p2')),
     });
+    const queueProducer = makeQueueProducer();
     const useCase = new CreateOrderUseCase(
       orderRepo,
       new RecipeSelector(),
-      warehousePort,
+      queueProducer,
       sseManager,
     );
 
-    await useCase.execute(1);
-    // Drain background processing
+    await useCase.execute(2);
     await flushAsync();
 
-    expect(orderRepo.updatePlateStatus).toHaveBeenCalledWith('p1', 'FAILED', expect.any(Date));
+    expect(queueProducer.publishPlateReservation).toHaveBeenCalledTimes(2);
+    expect(queueProducer.publishPlateReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plateId: 'p1',
+        orderId: 'order-1',
+        recipeId: expect.any(Number),
+        recipeName: expect.any(String),
+        ingredients: expect.any(Array),
+      }),
+    );
   });
 
   it('broadcasts SSE events for order and plate updates (after background flush)', async () => {
-    const warehousePort: IWarehousePort = {
-      reserveIngredients: jest.fn().mockResolvedValue({ success: true }),
-    };
     const orderRepo = makeOrderRepo({
       createPlate: jest.fn().mockResolvedValue(mockPlate('p1')),
     });
     const useCase = new CreateOrderUseCase(
       orderRepo,
       new RecipeSelector(),
-      warehousePort,
+      makeQueueProducer(),
       sseManager,
     );
 

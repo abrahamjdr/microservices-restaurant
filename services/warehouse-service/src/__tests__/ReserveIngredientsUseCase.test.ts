@@ -7,6 +7,8 @@ function makeInventoryRepo(reserveResult = true): IInventoryRepository {
     findAll: jest.fn(),
     findByIngredient: jest.fn(),
     upsert: jest.fn(),
+    addStock: jest.fn(),
+    setStock: jest.fn(),
     reserveWithLock: jest.fn().mockResolvedValue(reserveResult),
   };
 }
@@ -42,6 +44,8 @@ describe('ReserveIngredientsUseCase', () => {
       findAll: jest.fn(),
       findByIngredient: jest.fn(),
       upsert: jest.fn(),
+      addStock: jest.fn(),
+      setStock: jest.fn(),
       reserveWithLock: jest
         .fn()
         .mockResolvedValueOnce(false)
