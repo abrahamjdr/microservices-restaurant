@@ -9,11 +9,23 @@ export class SseManager {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
       'Access-Control-Allow-Origin': '*',
+      'X-Accel-Buffering': 'no',
     });
     res.write(':ok\n\n');
     this.clients.add(res);
 
+    // Heartbeat every 25s to prevent proxy/Render from closing idle SSE connections
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(':ping\n\n');
+      } catch {
+        clearInterval(heartbeat);
+        this.clients.delete(res);
+      }
+    }, 25000);
+
     res.on('close', () => {
+      clearInterval(heartbeat);
       this.clients.delete(res);
     });
   }

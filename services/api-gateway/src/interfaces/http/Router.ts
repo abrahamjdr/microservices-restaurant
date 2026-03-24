@@ -166,12 +166,13 @@ export class Router {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
       'Access-Control-Allow-Origin': '*',
+      'X-Accel-Buffering': 'no',
     });
 
     const upstreamReq = client.request(
       {
         hostname: url.hostname,
-        port: url.port,
+        port: url.port || (isHttps ? 443 : 80),
         path: url.pathname,
         method: 'GET',
         headers: { Accept: 'text/event-stream' },
