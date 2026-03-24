@@ -11,6 +11,7 @@ export function OrderCard({ onOrderPlaced }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSubmit = async () => {
@@ -18,14 +19,16 @@ export function OrderCard({ onOrderPlaced }: Props) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
+      setError(null);
       try {
         await api.post('/api/orders', { quantity });
         onOrderPlaced();
         setFlash(true);
         setQuantity(1);
         setTimeout(() => setFlash(false), 1000);
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: { error?: string }; status?: number } };
+        setError(axiosErr.response?.data?.error ?? 'Error al enviar el pedido');
       } finally {
         setLoading(false);
       }
@@ -82,6 +85,8 @@ export function OrderCard({ onOrderPlaced }: Props) {
       >
         {label}
       </button>
+
+      {error && <p className="text-xs text-red-500 text-center -mt-2">{error}</p>}
 
       {/* Footer note */}
       <p className="text-[10px] text-slate-400 text-center leading-relaxed mt-auto uppercase tracking-wide">

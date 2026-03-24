@@ -33,12 +33,11 @@ export class BullMQProducer implements IQueueProducerPort {
   }
 
   async getDepth(): Promise<number> {
-    const [waiting, active, delayed] = await Promise.all([
+    const [waiting, active] = await Promise.all([
       this.queue.getWaitingCount(),
       this.queue.getActiveCount(),
-      this.queue.getDelayedCount(),
     ]);
-    return waiting + active + delayed;
+    return waiting + active;
   }
 
   async publishPlateReservation(job: PlateReservationJob): Promise<void> {
