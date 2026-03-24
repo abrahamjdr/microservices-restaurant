@@ -54,34 +54,57 @@ Single PostgreSQL instance with schema-level isolation:
 ```
 postgresql://user:pass@postgres:5432/restaurant
   ├── schema: kitchen   (Order, Plate)
-  ├── schema: warehouse (Inventory, PurchaseLog)
+  ├── schema: warehouse (Inventory)
   └── schema: market    (Purchase)
 ```
 
-Each service has its own Prisma schema with `?schema=<name>` in the URL. No cross-schema foreign keys.
+Each service has its own Prisma schema pointed via `?schema=<name>` in the
+connection URL. No cross-schema foreign keys — services are fully independent
+at the data layer.
 
 ## Order Flow
 
+The system uses an **async queue architecture** — kitchen and warehouse never
+call each other via HTTP. All coordination goes through two BullMQ queues.
+
 ```
 1. POST /api/orders { quantity: 3 }
-2. kitchen: creates Order (PENDING)
-3. kitchen: creates 3 Plates (PENDING), selects random recipe per plate
-4. kitchen: sets Order → IN_PROGRESS, broadcasts SSE
-5. kitchen: Promise.allSettled([processPlate×3])
-   Per plate:
-   a. plate → IN_PROGRESS
-   b. POST warehouse:/internal/reserve { ingredients }
-      i. FOR UPDATE lock on each ingredient
-      ii. If qty < needed → call market-service /buy
-          market-service → GET farmers-market-api?ingredient=X
-          logs result in Purchase table
-          adds to inventory
-      iii. deduct from inventory
-   c. plate → COMPLETED | FAILED
-   d. SSE broadcast
-6. kitchen: Order → COMPLETED | FAILED
-7. SSE broadcast to frontend
+   → 202 Accepted immediately (order = PENDING)
+
+2. kitchen background (processOrderAsync):
+   a. Order → IN_PROGRESS, SSE broadcast
+   b. For each plate (sequential):
+      - plate → IN_PROGRESS, SSE broadcast
+      - Publish PlateReservationJob to [plate-reserve queue]
+        { plateId, orderId, recipeId, recipeName, ingredients }
+
+3. warehouse worker consumes [plate-reserve queue]:
+   a. ReserveIngredientsUseCase:
+      - FOR UPDATE lock on each ingredient row
+      - Deduct stock (fail → BullMQ retries up to 5×, exponential backoff 2s)
+   b. On success: record consumption in ConsumptionTracker
+   c. Throttled AI analysis (max once/20s):
+      - GET current inventory + consumption rates
+      - POST to AI service (Lambda) — fallback to FallbackAnalyzer if unavailable
+      - If refillNow=true for ingredient:
+           → RefillIngredientUseCase(ingredient, qty)
+           → market-service POST /buy → Alegra farmers-market API
+           → log Purchase, add to inventory
+   d. Publish PlateResultJob to [plate-result queue]
+      { plateId, orderId, success, message }
+
+4. kitchen worker consumes [plate-result queue]:
+   a. plate → COMPLETED | FAILED, SSE broadcast
+   b. If all plates terminal:
+      - Order → COMPLETED (any succeeded) | FAILED (all failed)
+      - SSE broadcast
+
+5. Frontend EventSource receives order_updated / plate_updated events
 ```
+
+**Timeout safety:** if a plate stays `IN_PROGRESS` for more than 2 minutes
+(warehouse down or silent failure), the kitchen's `PlateResultWorker` watcher
+marks it `FAILED` automatically every 30 seconds.
 
 ## Race Condition Prevention
 
