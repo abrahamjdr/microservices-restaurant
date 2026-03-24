@@ -49,9 +49,11 @@ function makeOrderRepo(overrides: Partial<IOrderRepository> = {}): IOrderReposit
       .fn()
       .mockResolvedValueOnce(mockPlate('p1'))
       .mockResolvedValueOnce(mockPlate('p2')),
-    updatePlateStatus: jest.fn().mockImplementation((_id: string, status: string) =>
-      Promise.resolve({ ...mockPlate(_id), status }),
-    ),
+    updatePlateStatus: jest
+      .fn()
+      .mockImplementation((_id: string, status: string) =>
+        Promise.resolve({ ...mockPlate(_id), status }),
+      ),
     ...overrides,
   };
 }

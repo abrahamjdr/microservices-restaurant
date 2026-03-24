@@ -44,9 +44,11 @@ function makeOrderRepo(overrides: Partial<IOrderRepository> = {}): IOrderReposit
     findAll: jest.fn(),
     updateStatus: jest.fn().mockResolvedValue({ ...mockOrder, status: 'COMPLETED' }),
     createPlate: jest.fn(),
-    updatePlateStatus: jest.fn().mockImplementation((_id: string, status: string) =>
-      Promise.resolve({ ...mockPlate(_id), status }),
-    ),
+    updatePlateStatus: jest
+      .fn()
+      .mockImplementation((_id: string, status: string) =>
+        Promise.resolve({ ...mockPlate(_id), status }),
+      ),
     ...overrides,
   };
 }
@@ -64,9 +66,9 @@ describe('PlateResultWorker', () => {
     data: { plateId: string; orderId: string; success: boolean; message?: string },
   ) {
     // Access the private process method directly for unit testing
-    return (worker as unknown as { process: (job: { data: typeof data }) => Promise<void> }).process(
-      { data },
-    );
+    return (
+      worker as unknown as { process: (job: { data: typeof data }) => Promise<void> }
+    ).process({ data });
   }
 
   it('marks plate as COMPLETED and broadcasts plate_updated on success', async () => {

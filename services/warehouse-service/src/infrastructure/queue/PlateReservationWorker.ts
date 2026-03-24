@@ -66,7 +66,7 @@ export class PlateReservationWorker {
     const { plateId, orderId, ingredients } = job.data;
 
     // Determine if this is the last allowed attempt (0-indexed)
-    const maxAttempts = (job.opts.attempts ?? 1);
+    const maxAttempts = job.opts.attempts ?? 1;
     const isLastAttempt = job.attemptsMade >= maxAttempts - 1;
 
     let success = false;
@@ -100,7 +100,9 @@ export class PlateReservationWorker {
         throw new Error(message ?? 'Ingredient reservation failed — retrying');
       }
       // Final attempt also failed: emit FAILED result so the plate is resolved.
-      console.warn(`[warehouse] Plate ${plateId} failed after ${maxAttempts} attempt(s): ${message}`);
+      console.warn(
+        `[warehouse] Plate ${plateId} failed after ${maxAttempts} attempt(s): ${message}`,
+      );
     }
 
     await this.resultQueue.add(
@@ -112,7 +114,8 @@ export class PlateReservationWorker {
 
   private async triggerAIAnalysis(): Promise<void> {
     if (!this.aiServices) return;
-    const { consumptionTracker, aiClient, analysisCache, refillUseCase, inventoryRepo } = this.aiServices;
+    const { consumptionTracker, aiClient, analysisCache, refillUseCase, inventoryRepo } =
+      this.aiServices;
 
     const inventoryItems = await inventoryRepo.findAll();
     const inventory: Record<string, number> = {};

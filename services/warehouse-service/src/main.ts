@@ -33,7 +33,11 @@ async function main() {
   const aiClient = new AIAnalysisClient(AI_SERVICE_URL);
   const analysisCache = new AnalysisCache();
 
-  const resetInventoryUseCase = new ResetInventoryUseCase(inventoryRepo, consumptionTracker, analysisCache);
+  const resetInventoryUseCase = new ResetInventoryUseCase(
+    inventoryRepo,
+    consumptionTracker,
+    analysisCache,
+  );
 
   const plateReservationWorker = new PlateReservationWorker(REDIS_URL, reserveUseCase, {
     consumptionTracker,
@@ -43,7 +47,11 @@ async function main() {
     inventoryRepo,
   });
 
-  const controller = new WarehouseController(getInventoryUseCase, resetInventoryUseCase, analysisCache);
+  const controller = new WarehouseController(
+    getInventoryUseCase,
+    resetInventoryUseCase,
+    analysisCache,
+  );
   const router = new Router(controller);
 
   const server = http.createServer((req, res) => router.handle(req, res));

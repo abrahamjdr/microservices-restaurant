@@ -1,9 +1,9 @@
 import { InventoryAnalysisResult, InventoryAnalysisItem } from './AIAnalysisClient';
 import { ConsumptionRate } from './ConsumptionTracker';
 
-const CRITICAL_THRESHOLD = 0;   // qty === 0 → crítico
-const LOW_THRESHOLD = 3;        // qty <= 3  → bajo
-const REFILL_TARGET = 10;       // comprar hasta llegar a 10 unidades
+const CRITICAL_THRESHOLD = 0; // qty === 0 → crítico
+const LOW_THRESHOLD = 3; // qty <= 3  → bajo
+const REFILL_TARGET = 10; // comprar hasta llegar a 10 unidades
 
 /**
  * Analizador de inventario basado en reglas simples.
@@ -67,14 +67,10 @@ export class FallbackAnalyzer {
     };
   }
 
-  private buildInsight(
-    ingredient: string,
-    qty: number,
-    status: string,
-    rate: number,
-  ): string {
+  private buildInsight(ingredient: string, qty: number, status: string, rate: number): string {
     if (status === 'critical') return `${ingredient} agotado — compra urgente requerida.`;
-    if (status === 'low') return `${ingredient} casi agotado (${qty} unidades, tasa ${rate.toFixed(1)}/h).`;
+    if (status === 'low')
+      return `${ingredient} casi agotado (${qty} unidades, tasa ${rate.toFixed(1)}/h).`;
     return `${ingredient} con stock suficiente (${qty} unidades).`;
   }
 

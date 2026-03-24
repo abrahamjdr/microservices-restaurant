@@ -46,10 +46,7 @@ describe('ReserveIngredientsUseCase', () => {
       upsert: jest.fn(),
       addStock: jest.fn(),
       setStock: jest.fn(),
-      reserveWithLock: jest
-        .fn()
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true),
+      reserveWithLock: jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
     };
     const market: IMarketPort = { buyIngredient: jest.fn() };
     const useCase = new ReserveIngredientsUseCase(repo, market);
