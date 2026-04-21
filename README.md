@@ -1,4 +1,4 @@
-# Reto Alegra — Restaurant Automation System
+# Alegra — Restaurant Automation System
 
 A full microservices backend + Next.js frontend that automates a restaurant's free-food donation event.
 
