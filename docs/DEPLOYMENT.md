@@ -4,135 +4,103 @@
 
 ```bash
 cp .env.example .env
-# Set OPENAI_API_KEY in .env
-docker-compose up --build
+# Set OPENAI_API_KEY in .env (optional: warehouse falls back to FallbackAnalyzer)
+docker compose up --build
 ```
 
-Services start in order: postgres → kitchen/warehouse/market → api-gateway → frontend
+## Production: one Linux VPS + Vercel
 
-## Deploy AI Service to AWS Lambda (Serverless Framework)
+Works on any Linux VPS with Docker (x86_64 or ARM64): Hetzner Cloud (~4 EUR/month, 2 vCPU / 4 GB),
+DigitalOcean, Vultr, Oracle Always Free, etc. Recommended minimum: **4 GB RAM** (with 2 GB, drop
+`ai-service`: warehouse falls back to its local analyzer).
+
+| Component                                                            | Where                     |
+| -------------------------------------------------------------------- | ------------------------- |
+| Postgres, Redis, kitchen, warehouse, market, ai, gateway, bull-board | One VPS, `docker compose` |
+| HTTPS reverse proxy (only public entry, 80/443)                      | Caddy container           |
+| Frontend                                                             | Vercel                    |
+
+Only Caddy publishes ports. Postgres, Redis, the services and bull-board are reachable
+only inside the Docker network (`docker-compose.prod.yml` empties their `ports`).
+
+### 1. Create the VPS
+
+1. Create a server with **Ubuntu 22.04/24.04**, at least 4 GB RAM, a public IPv4 and your SSH key.
+2. Make sure ports **80 and 443** are open to the internet (provider firewall / security group).
+   If the provider firewall is off, also check the OS firewall: `sudo ufw allow 80,443/tcp`.
+3. Oracle Cloud only: choose shape `VM.Standard.A1.Flex` (aarch64) and open 80/443 in the VCN
+   Security List **and** in iptables (its Ubuntu images block them by default):
+
+   ```bash
+   sudo iptables -I INPUT 6 -p tcp --dport 80 -j ACCEPT
+   sudo iptables -I INPUT 6 -p tcp --dport 443 -j ACCEPT
+   sudo apt-get install -y iptables-persistent && sudo netfilter-persistent save
+   ```
+
+### 2. Install Docker
 
 ```bash
-# Prerequisites: AWS credentials configured
-cd services/ai-service
-npm install
-
-# Build and deploy
-npm run build
-npx serverless deploy
-
-# Output will include a URL like:
-# https://abc123.execute-api.us-east-1.amazonaws.com/dev
-# Use this as AI_SERVICE_URL in Railway
+ssh <user>@<SERVER_IP>
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER && newgrp docker
+docker compose version
 ```
 
-## Deploy to Render
-
-### Infrastructure
-
-| Component                | Service                           |
-| ------------------------ | --------------------------------- |
-| PostgreSQL               | Supabase (one DB, three schemas)  |
-| Redis                    | Upstash (BullMQ queues)           |
-| Microservices + frontend | Render Web Services               |
-| AI service               | AWS Lambda (Serverless Framework) |
-
-### 1. Supabase — PostgreSQL
-
-Create a project at supabase.com. Use the **connection pooler** URL (port 6543)
-for each service, appending `?schema=<name>&pgbouncer=true`:
-
-```
-KITCHEN_DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?schema=kitchen&pgbouncer=true
-WAREHOUSE_DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?schema=warehouse&pgbouncer=true
-MARKET_DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?schema=market&pgbouncer=true
-```
-
-### 2. Upstash — Redis
-
-Create a Redis database at upstash.com. Copy the `REDIS_URL` (starts with `rediss://`).
-All services that use BullMQ share the same Upstash instance.
-
-> **Note:** Upstash free tier uses `volatile-ttl` eviction policy. BullMQ
-> recommends `noeviction` — you'll see a warning in logs but it functions correctly.
-
-### 3. Deploy AI service to AWS Lambda
+### 3. Clone and configure
 
 ```bash
-cd services/ai-service
-npm install
-npx serverless deploy
-# Output: https://<id>.execute-api.<region>.amazonaws.com/dev
+git clone <REPO_URL> microservices-restaurant && cd microservices-restaurant
+cp .env.prod.example .env
+nano .env
 ```
 
-### 4. Create Render Web Services
+Set in `.env`:
 
-Create one Web Service per microservice, all connected to the same GitHub repo:
+- `POSTGRES_PASSWORD`: a strong random value.
+- `API_DOMAIN`: your domain, or with no domain use sslip.io: the VM IP with dots turned
+  into dashes, e.g. `203.0.113.10` → `203-0-113-10.sslip.io`. Caddy obtains a Let's Encrypt
+  certificate automatically (needs ports 80/443 reachable).
+- `OPENAI_API_KEY`: optional.
 
-| Service           | Root Directory               | Port |
-| ----------------- | ---------------------------- | ---- |
-| api-gateway       | `services/api-gateway`       | 8000 |
-| kitchen-service   | `services/kitchen-service`   | 8001 |
-| warehouse-service | `services/warehouse-service` | 8002 |
-| market-service    | `services/market-service`    | 8003 |
-| frontend          | `frontend/web`               | 3000 |
+### 4. Start
 
-Each service auto-detects the Dockerfile. Set **Start Command** to `node dist/main.js`
-(or leave blank if the Dockerfile handles it).
-
-### 5. Environment variables
-
-**api-gateway:**
-
-```
-PORT=8000
-KITCHEN_SERVICE_URL=https://<kitchen-service>.onrender.com
-WAREHOUSE_SERVICE_URL=https://<warehouse-service>.onrender.com
-MARKET_SERVICE_URL=https://<market-service>.onrender.com
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+curl https://<API_DOMAIN>/health
 ```
 
-**kitchen-service:**
+The first build can take several minutes (longer on ARM). To avoid retyping the `-f` flags:
+`export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml`.
 
-```
-PORT=8001
-KITCHEN_DATABASE_URL=<supabase-pooler-url>?schema=kitchen&pgbouncer=true
-REDIS_URL=rediss://<upstash-url>
-```
+SSE (`/api/orders/stream`) is proxied with `flush_interval -1` in `deploy/Caddyfile`
+so events are not buffered.
 
-**warehouse-service:**
+### 5. Frontend on Vercel
 
-```
-PORT=8002
-WAREHOUSE_DATABASE_URL=<supabase-pooler-url>?schema=warehouse&pgbouncer=true
-REDIS_URL=rediss://<upstash-url>
-MARKET_SERVICE_URL=https://<market-service>.onrender.com
-AI_SERVICE_URL=https://<id>.execute-api.<region>.amazonaws.com/dev
-```
+1. Import the repo in Vercel, Root Directory `frontend/web`.
+2. Environment variable: `NEXT_PUBLIC_API_URL=https://<API_DOMAIN>`
+3. Deploy. If you change the variable later, **redeploy** (it is inlined at build time).
 
-**market-service:**
+The gateway answers CORS with `Access-Control-Allow-Origin: *`, so no extra config is needed.
 
-```
-PORT=8003
-MARKET_DATABASE_URL=<supabase-pooler-url>?schema=market&pgbouncer=true
-FARMERS_MARKET_API_URL=https://recruitment.alegra.com/api/farmers-market/buy
+### Logs
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f --tail=100            # all
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f caddy api-gateway     # some
 ```
 
-**frontend:**
+### Update
 
+```bash
+git pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
-NEXT_PUBLIC_API_URL=https://<api-gateway>.onrender.com
-```
 
-### 6. Public URLs
+Data persists in the `postgres_data`, `redis_data` and `caddy_data` volumes.
 
-Enable **public** networking only on:
+### Notes
 
-- `api-gateway` (consumed by the frontend)
-- `frontend`
-
-`kitchen-service`, `warehouse-service`, and `market-service` can remain public
-or use Render's private network — they don't need to be reachable from the browser.
-
-### 7. Trigger deployment
-
-Push to `main` → Render auto-redeploys all connected services.
+- bull-board (:3001) is not exposed publicly; to use it, temporarily add `ports: ['127.0.0.1:3001:3001']` and tunnel with `ssh -L 3001:localhost:3001 <user>@<SERVER_IP>`.
+- Kitchen/warehouse/market run `prisma db push --accept-data-loss` on start (existing behavior).

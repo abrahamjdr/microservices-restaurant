@@ -18,17 +18,17 @@ POST /api/orders → api-gateway → kitchen-service
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Backend | Pure Node.js `http` module + TypeScript |
-| Architecture | Hexagonal (Ports & Adapters) |
-| ORM | Prisma + PostgreSQL |
-| Frontend | Next.js 14 + Tailwind CSS |
-| AI | OpenAI GPT-4o via axios |
-| AI Deploy | Serverless Framework → AWS Lambda |
-| HTTP Client | Axios |
-| Monorepo | npm workspaces |
-| Commit hooks | Husky + Commitlint + lint-staged |
+| Layer        | Choice                                  |
+| ------------ | --------------------------------------- |
+| Backend      | Pure Node.js `http` module + TypeScript |
+| Architecture | Hexagonal (Ports & Adapters)            |
+| ORM          | Prisma + PostgreSQL                     |
+| Frontend     | Next.js 14 + Tailwind CSS               |
+| AI           | OpenAI GPT-4o via axios                 |
+| AI Deploy    | Serverless Framework → AWS Lambda       |
+| HTTP Client  | Axios                                   |
+| Monorepo     | npm workspaces                          |
+| Commit hooks | Husky + Commitlint + lint-staged        |
 
 ## Quick Start
 
@@ -50,27 +50,27 @@ The API is available at `http://localhost:8000`.
 
 ## Services
 
-| Service | Port | Purpose |
-|---|---|---|
-| api-gateway | 8000 | Single public entry point |
-| kitchen-service | 8001 | Order management + recipe selection |
-| warehouse-service | 8002 | Inventory + purchasing trigger |
-| market-service | 8003 | Farmers market proxy |
-| ai-service | 8004 (local) / AWS Lambda (prod) | AI recipe recommendations |
-| frontend | 3000 | Next.js dashboard |
+| Service           | Port                             | Purpose                             |
+| ----------------- | -------------------------------- | ----------------------------------- |
+| api-gateway       | 8000                             | Single public entry point           |
+| kitchen-service   | 8001                             | Order management + recipe selection |
+| warehouse-service | 8002                             | Inventory + purchasing trigger      |
+| market-service    | 8003                             | Farmers market proxy                |
+| ai-service        | 8004 (local) / AWS Lambda (prod) | AI recipe recommendations           |
+| frontend          | 3000                             | Next.js dashboard                   |
 
 ## API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/orders | Create order `{ quantity: number }` |
-| GET | /api/orders | List all orders |
-| GET | /api/orders/:id | Single order |
-| GET | /api/orders/stream | SSE real-time updates |
-| GET | /api/recipes | All 6 recipes |
-| GET | /api/inventory | Current stock levels |
-| GET | /api/purchases | Purchase history |
-| POST | /api/ai/recommend | AI recipe recommendations |
+| Method | Path               | Description                         |
+| ------ | ------------------ | ----------------------------------- |
+| POST   | /api/orders        | Create order `{ quantity: number }` |
+| GET    | /api/orders        | List all orders                     |
+| GET    | /api/orders/:id    | Single order                        |
+| GET    | /api/orders/stream | SSE real-time updates               |
+| GET    | /api/recipes       | All 6 recipes                       |
+| GET    | /api/inventory     | Current stock levels                |
+| GET    | /api/purchases     | Purchase history                    |
+| POST   | /api/ai/recommend  | AI recipe recommendations           |
 
 ## Recipes
 
@@ -97,12 +97,12 @@ cd services/kitchen-service && npm test
 cd services/ai-service
 npm run build
 npx serverless deploy
-# Copy the output URL and set AI_SERVICE_URL in your Railway environment variables
+# Copy the output URL and set it as AI_SERVICE_URL for warehouse-service
 ```
 
-## Deployment (Railway)
+## Deployment (single VPS + Vercel)
 
-See `docs/DEPLOYMENT.md` for full Railway deployment guide.
+See `docs/DEPLOYMENT.md`: docker compose + Caddy on any Linux VPS (x86 or ARM64), frontend on Vercel.
 
 ## Commit Convention
 
