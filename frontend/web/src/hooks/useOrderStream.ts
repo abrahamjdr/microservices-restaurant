@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { usePolling } from './usePolling';
 import { OrderDTO, PlateDTO, SSE_URL, api } from '@/lib/api';
 
 export function useOrderStream() {
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [connected, setConnected] = useState(false);
   const esRef = useRef<EventSource | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -30,20 +30,14 @@ export function useOrderStream() {
     });
   }, []);
 
-  const startPolling = useCallback(() => {
-    if (pollTimerRef.current) return;
-    pollTimerRef.current = setInterval(fetchAll, 3000);
-  }, [fetchAll]);
-
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }, []);
+  // Fallback polling only while SSE is down
+  usePolling(fetchAll, 3000, !connected);
 
   useEffect(() => {
     fetchAll();
+
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
 
     const connect = () => {
       const es = new EventSource(SSE_URL);
@@ -66,27 +60,25 @@ export function useOrderStream() {
 
       es.onopen = () => {
         setConnected(true);
-        stopPolling();
+        attempt = 0;
       };
 
       es.onerror = () => {
         setConnected(false);
         es.close();
         esRef.current = null;
-        // Fall back to polling
-        startPolling();
-        // Retry SSE after 5s
-        setTimeout(connect, 5000);
+        // Retry SSE with backoff: 5s, 10s, 20s... capped at 60s
+        retryTimer = setTimeout(connect, Math.min(5000 * 2 ** attempt++, 60000));
       };
     };
 
     connect();
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       esRef.current?.close();
-      stopPolling();
     };
-  }, [fetchAll, upsertOrder, startPolling, stopPolling]);
+  }, [fetchAll, upsertOrder]);
 
   return { orders, connected };
 }
