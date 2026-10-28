@@ -97,12 +97,12 @@ cd services/kitchen-service && npm test
 cd services/ai-service
 npm run build
 npx serverless deploy
-# Copy the output URL and set AI_SERVICE_URL in your Railway environment variables
+# Copy the output URL and set it as AI_SERVICE_URL for warehouse-service
 ```
 
-## Deployment (Railway)
+## Deployment (single VM + Vercel)
 
-See `docs/DEPLOYMENT.md` for full Railway deployment guide.
+See `docs/DEPLOYMENT.md`: docker compose + Caddy on an Oracle ARM64 VM, frontend on Vercel.
 
 ## Commit Convention
 
