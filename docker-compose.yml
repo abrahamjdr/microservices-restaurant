@@ -198,8 +198,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/web/Dockerfile
     container_name: restaurant-frontend
     networks:
       - restaurant-net
