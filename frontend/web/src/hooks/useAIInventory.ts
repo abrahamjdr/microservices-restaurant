@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, InventoryItem } from '@/lib/api';
+import { usePolling } from './usePolling';
 
 export interface IngredientAnalysis {
   ingredient: string;
@@ -59,17 +60,9 @@ export function useAIInventory(refreshTrigger: number) {
     Promise.all([fetchInventory(), fetchAnalysis()]).finally(() => setLoading(false));
   }, [fetchInventory, fetchAnalysis, refreshTrigger]);
 
-  // Poll inventory fast (reflects purchases quickly)
-  useEffect(() => {
-    const t = setInterval(fetchInventory, 3000);
-    return () => clearInterval(t);
-  }, [fetchInventory]);
-
-  // Poll analysis slower (AI calls are async and expensive)
-  useEffect(() => {
-    const t = setInterval(fetchAnalysis, 8000);
-    return () => clearInterval(t);
-  }, [fetchAnalysis]);
+  // Inventory reflects purchases; analysis is async and expensive, so slower
+  usePolling(fetchInventory, 10000);
+  usePolling(fetchAnalysis, 20000);
 
   // Merge: inventory is ground truth for stock, AI enriches with status/rates
   const aiByIngredient = new Map(analysis?.analysis.map((a) => [a.ingredient, a]) ?? []);
