@@ -1,0 +1,68 @@
+# Production override for a single VM. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Only Caddy (80/443) is exposed; everything else stays on restaurant-net.
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 1g
+
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 512m
+
+  kitchen-service:
+    restart: unless-stopped
+    mem_limit: 512m
+
+  warehouse-service:
+    restart: unless-stopped
+    mem_limit: 512m
+
+  market-service:
+    restart: unless-stopped
+    mem_limit: 512m
+
+  bull-board:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 256m
+
+  ai-service:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 768m
+
+  api-gateway:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 256m
+
+  # Frontend lives on Vercel; only built when running with --profile local.
+  frontend:
+    profiles: ['local']
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: restaurant-caddy
+    restart: unless-stopped
+    mem_limit: 128m
+    networks:
+      - restaurant-net
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

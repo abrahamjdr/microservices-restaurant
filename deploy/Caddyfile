@@ -1,0 +1,6 @@
+{$API_DOMAIN} {
+	# flush_interval -1: no buffering, needed for SSE (/api/orders/stream)
+	reverse_proxy api-gateway:8000 {
+		flush_interval -1
+	}
+}
