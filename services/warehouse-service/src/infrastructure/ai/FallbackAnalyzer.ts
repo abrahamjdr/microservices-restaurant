@@ -2,7 +2,7 @@ import { InventoryAnalysisResult, InventoryAnalysisItem } from './AIAnalysisClie
 import { ConsumptionRate } from './ConsumptionTracker';
 
 const CRITICAL_THRESHOLD = 0; // qty === 0 → crítico
-const LOW_THRESHOLD = 3; // qty <= 3  → bajo
+const LOW_THRESHOLD = 3; // qty <= 3  → bajo (también se repone: el mercado entrega 1-3 unidades por compra)
 const REFILL_TARGET = 10; // comprar hasta llegar a 10 unidades
 
 /**
@@ -39,7 +39,7 @@ export class FallbackAnalyzer {
         critical.push(ingredient);
       } else if (qty <= LOW_THRESHOLD) {
         status = 'low';
-        refillNow = false;
+        refillNow = true;
         recommendedRefillQty = REFILL_TARGET - qty;
         low.push(ingredient);
       } else {
