@@ -83,7 +83,6 @@ services:
       PORT: 8002
       WAREHOUSE_DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_user}:${POSTGRES_PASSWORD:-restaurant_pass}@postgres:5432/${POSTGRES_DB:-restaurant}?schema=warehouse
       MARKET_SERVICE_URL: http://market-service:8003
-      AI_SERVICE_URL: http://ai-service:8004
       REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
