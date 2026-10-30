@@ -64,19 +64,28 @@ export function useAIInventory(refreshTrigger: number) {
   usePolling(fetchInventory, 10000);
   usePolling(fetchAnalysis, 20000);
 
-  // Merge: inventory is ground truth for stock, AI enriches with status/rates
+  // Merge: inventory is ground truth for stock. The analysis is a snapshot that only refreshes
+  // when a plate is processed, so its status/minutes are used only while its stock still
+  // matches; otherwise status is derived from live stock (same thresholds as FallbackAnalyzer).
   const aiByIngredient = new Map(analysis?.analysis.map((a) => [a.ingredient, a]) ?? []);
 
   const rows: InventoryRow[] = inventory.map((item) => {
     const ai = aiByIngredient.get(item.ingredient);
+    const fresh = ai !== undefined && ai.currentStock === item.quantity;
+    const rate = ai?.consumptionRatePerHour ?? 0;
+    const liveStatus = item.quantity === 0 ? 'critical' : item.quantity <= 3 ? 'low' : 'good';
     return {
       ingredient: item.ingredient,
       currentStock: item.quantity,
-      status: ai?.status ?? (item.quantity === 0 ? 'critical' : 'unknown'),
-      consumptionRatePerHour: ai?.consumptionRatePerHour ?? 0,
-      estimatedMinutesRemaining: ai?.estimatedMinutesRemaining ?? null,
-      refillNow: ai ? ai.refillNow : item.quantity === 0,
-      insight: ai?.insight ?? '',
+      status: fresh ? ai.status : liveStatus,
+      consumptionRatePerHour: rate,
+      estimatedMinutesRemaining: fresh
+        ? ai.estimatedMinutesRemaining
+        : rate > 0
+          ? Math.round((item.quantity / rate) * 60)
+          : null,
+      refillNow: fresh ? ai.refillNow : item.quantity === 0,
+      insight: fresh ? ai.insight : '',
     };
   });
 
