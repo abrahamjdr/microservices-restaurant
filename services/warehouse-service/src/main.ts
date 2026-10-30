@@ -15,7 +15,6 @@ import { Router } from './interfaces/http/Router';
 
 const PORT = parseInt(process.env.PORT ?? '8002', 10);
 const MARKET_URL = process.env.MARKET_SERVICE_URL ?? 'http://localhost:8003';
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:8004';
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 async function main() {
@@ -30,7 +29,7 @@ async function main() {
   const refillIngredientUseCase = new RefillIngredientUseCase(inventoryRepo, marketAdapter);
 
   const consumptionTracker = new ConsumptionTracker();
-  const aiClient = new AIAnalysisClient(AI_SERVICE_URL);
+  const aiClient = new AIAnalysisClient(process.env.OPENAI_API_KEY ?? '');
   const analysisCache = new AnalysisCache();
 
   const resetInventoryUseCase = new ResetInventoryUseCase(
